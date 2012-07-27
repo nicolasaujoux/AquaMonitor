@@ -2,10 +2,10 @@
 #include <Arduino.h>
 
 #include <Wire.h>
-#include "RTClib.h"
+#include "LedCycle.h"
 
-int ledPin = 11;
-int brightness = 0;
+uint8_t ledPin = 11;
+uint8_t brightness = 0;
 bool fadeIN = false, fadeOUT = false;
  
 RTC_DS1307 RTC;
