@@ -1,56 +1,44 @@
-// Date and time functions using a DS1307 RTC connected via I2C and Wire lib
+
 #include <Arduino.h>
 
-#include <Wire.h>
-#include "LedCycle.h"
+#include "Time.h"
 
-uint8_t ledPin = 11;
-uint8_t brightness = 0;
-bool fadeIN = false, fadeOUT = false;
- 
-RTC_DS1307 RTC;
- 
-void setup () {
-  //Led setup
-  pinMode(ledPin, OUTPUT);
+#include "Wire.h"
+#include "LiquidCrystal_I2C.h"
 
-  //RTC setup
-  Serial.begin(57600);
-  Wire.begin();
-  RTC.begin();
- 
-  if (! RTC.isrunning()) {
-    Serial.println("RTC is NOT running!");
-    // following line sets the RTC to the date & time this sketch was compiled
-    RTC.adjust(DateTime(__DATE__, __TIME__));
-  }
- 
+void digitalClockDisplay();
+
+LiquidCrystal_I2C lcd(0x38, 16, 2);
+
+time_t time;
+
+void setup()  {
+  lcd.init();
+  lcd.backlight();
+  setTime(18,0,0,0,0,0);
+
+  time = hoursToTime_t(16) + minutesToTime_t(30);
+
 }
- 
-void loop () {
-  DateTime now = RTC.now();
 
-  if (now.hour()>=16 && now.hour()<21) {
-    fadeIN = true;
-  }
-  if (now.hour()==22 && now.minute()==30) {
-    fadeOUT = true;
-  }
+void loop(){
+  digitalClockDisplay();  
+  lcd.setCursor(0,1);
 
-  if (fadeIN && (brightness < 255)) {
-    brightness++;
-    if (brightness == 255) {
-      fadeIN = false;
-    }
-  }
-  if (fadeOUT && (brightness > 0)) {
-    brightness--;
-    if (brightness == 0) {
-      fadeOUT = false;
-    }
-  }
+  lcd.print((hour(time)));
+  lcd.print(":");
+  lcd.print(minute(time));
 
-  analogWrite(ledPin, brightness);
-
-  delay(5000);
+  delay(1000);
 }
+
+void digitalClockDisplay(){
+  // digital clock display of the time
+  lcd.setCursor(0,0);
+  lcd.print(hour());
+  lcd.print(":");
+  lcd.print(minute());
+  lcd.print(":");
+  lcd.print(second());
+}
+
