@@ -1,56 +1,61 @@
-// Date and time functions using a DS1307 RTC connected via I2C and Wire lib
+
 #include <Arduino.h>
 
-#include <Wire.h>
-#include "RTClib.h"
+#include "Time.h"
+#include "DS1307RTC.h"
 
+#include "Wire.h"
+#include "LiquidCrystal_I2C.h"
+
+#include "LedCycle.h"
+
+void digitalClockDisplay();
+
+LiquidCrystal_I2C lcd(0x38, 16, 2);
+LedCycle led;
 int ledPin = 11;
-int brightness = 0;
-bool fadeIN = false, fadeOUT = false;
- 
-RTC_DS1307 RTC;
- 
-void setup () {
-  //Led setup
+
+time_t time;
+
+void setup()  {
+  time_t start, fadeIn, stop, fadeOut;
+
+  setTime(15,29,50,0,0,0);
+  //setSyncProvider(RTC.get);
+
+  lcd.init();
+  lcd.backlight();
+
+  start = hoursToTime_t(15) + minutesToTime_t(30);
+  fadeIn = minutesToTime_t(30);
+  stop = hoursToTime_t(23);
+  fadeOut = minutesToTime_t(30);
+
+  led.setStartTime(start);
+  led.setFadeInTime(fadeIn);
+  led.setStopTime(stop);
+  led.setFadeOutTime(fadeOut);
+
   pinMode(ledPin, OUTPUT);
-
-  //RTC setup
-  Serial.begin(57600);
-  Wire.begin();
-  RTC.begin();
- 
-  if (! RTC.isrunning()) {
-    Serial.println("RTC is NOT running!");
-    // following line sets the RTC to the date & time this sketch was compiled
-    RTC.adjust(DateTime(__DATE__, __TIME__));
-  }
- 
 }
- 
-void loop () {
-  DateTime now = RTC.now();
 
-  if (now.hour()>=16 && now.hour()<21) {
-    fadeIN = true;
-  }
-  if (now.hour()==22 && now.minute()==30) {
-    fadeOUT = true;
-  }
+void loop(){
+  uint8_t percent;
+  percent = led.getOutputPercent(now());
+  analogWrite(ledPin, 255 * percent / 100);
 
-  if (fadeIN && (brightness < 255)) {
-    brightness++;
-    if (brightness == 255) {
-      fadeIN = false;
-    }
-  }
-  if (fadeOUT && (brightness > 0)) {
-    brightness--;
-    if (brightness == 0) {
-      fadeOUT = false;
-    }
-  }
-
-  analogWrite(ledPin, brightness);
-
-  delay(5000);
+  digitalClockDisplay();  
+  lcd.setCursor(0,1);
+  lcd.print(percent);
 }
+
+void digitalClockDisplay(){
+  // digital clock display of the time
+  lcd.setCursor(0,0);
+  lcd.print(hour());
+  lcd.print(":");
+  lcd.print(minute());
+  lcd.print(":");
+  lcd.print(second());
+}
+
