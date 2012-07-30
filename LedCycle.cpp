@@ -7,18 +7,16 @@
 
 #define PWM_MAX_OUTPUT 255
 
-LedCycle::LedCycle (uint8_t _ledPin){
-  ledPin = _ledPin;
-  pinMode(ledPin, OUTPUT);
-
+LedCycle::LedCycle (){
+  ledNeedInit = true;
   applyDefaultTime();
 }
 
-LedCycle::LedCycle (uint8_t _ledPin, time_t _startTime,
-                    time_t _fadeInTime, time_t _stopTime,
+LedCycle::LedCycle (time_t _startTime,
+                    time_t _fadeInTime, 
+                    time_t _stopTime,
                     time_t _fadeOutTime){
-  ledPin = _ledPin;
-  pinMode(ledPin, OUTPUT);
+  ledNeedInit = true;
 
   startTime = _startTime;
   fadeInTime = _fadeInTime;
@@ -33,12 +31,11 @@ void LedCycle::applyDefaultTime (){
   fadeOutTime = minutesToTime_t(30);
 }
 
-void LedCycle::computeCycle (time_t currentTime){
-  uint8_t brightnessPercent, realBrightness;
+uint8_t LedCycle::getOutputPercent (time_t currentTime){
+  uint8_t brightnessPercent;
 
   brightnessPercent = getBrightnessPercentage(currentTime);
-  realBrightness = (brightnessPercent * PWM_MAX_OUTPUT) / 100;
-  analogWrite(ledPin, realBrightness);
+  return brightnessPercent;
 }
 
 uint8_t LedCycle::getBrightnessPercentage (time_t currentTime){
@@ -47,6 +44,20 @@ uint8_t LedCycle::getBrightnessPercentage (time_t currentTime){
   time_t timeInDay;
   timeInDay = hoursToTime_t(hour(currentTime)) + 
       minutesToTime_t(minute(currentTime));
+
+  if (ledNeedInit) {
+    if (isLightOn(timeInDay) == true) {
+      brightnessPercent = 100;
+      isLedFullOn = true;
+      isLedOff = false;
+    }
+    else {
+      brightnessPercent = 0;
+      isLedFullOn = false;
+      isLedOff = true;
+    }
+    ledNeedInit = false;
+  }
 
   // If we are fading in the led
   if ((isLightOn(timeInDay) == true) && (isLedFullOn == false)) {

@@ -9,15 +9,14 @@
 
 class LedCycle {
 public:
-  LedCycle (uint8_t _ledPin);
+  LedCycle ();
 
-  LedCycle (uint8_t _ledPin, 
-            time_t startTime,
+  LedCycle (time_t startTime,
             time_t fadeInTime,
             time_t stopTime,
             time_t fadeOutTime);
 
-  void computeCycle (time_t _currentTime);
+  uint8_t getOutputPercent (time_t _currentTime);
 
   void setStartTime (time_t _startTime);
   time_t getStartTime() const {return startTime;}
@@ -34,10 +33,9 @@ public:
   void applyDefaultTime ();
 
 protected:
-  uint8_t ledPin;
-
   time_t startTime, fadeInTime, stopTime, fadeOutTime;
 
+  bool ledNeedInit;
   bool isLedFullOn, isLedOff;
 
   uint8_t getBrightnessPercentage (time_t currentTime);
