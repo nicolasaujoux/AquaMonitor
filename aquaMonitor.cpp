@@ -12,38 +12,41 @@
 void digitalClockDisplay();
 
 LiquidCrystal_I2C lcd(0x38, 16, 2);
-LedCycle led();
+LedCycle led;
+int ledPin = 11;
 
 time_t time;
 
 void setup()  {
   time_t start, fadeIn, stop, fadeOut;
 
-  setTime(16,0,0,0,0,0);
+  setTime(15,29,50,0,0,0);
   //setSyncProvider(RTC.get);
 
   lcd.init();
   lcd.backlight();
 
   start = hoursToTime_t(15) + minutesToTime_t(30);
-  fadeIn = minutesToTime_t(1);
+  fadeIn = minutesToTime_t(30);
   stop = hoursToTime_t(23);
-  fadeOut = minutesToTime_t(1);
+  fadeOut = minutesToTime_t(30);
 
   led.setStartTime(start);
   led.setFadeInTime(fadeIn);
   led.setStopTime(stop);
   led.setFadeOutTime(fadeOut);
+
+  pinMode(ledPin, OUTPUT);
 }
 
 void loop(){
   uint8_t percent;
   percent = led.getOutputPercent(now());
+  analogWrite(ledPin, 255 * percent / 100);
 
   digitalClockDisplay();  
   lcd.setCursor(0,1);
   lcd.print(percent);
-  delay(1000);
 }
 
 void digitalClockDisplay(){

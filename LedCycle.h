@@ -35,10 +35,8 @@ public:
 protected:
   time_t startTime, fadeInTime, stopTime, fadeOutTime;
 
-  bool ledNeedInit;
   bool isLedFullOn, isLedOff;
 
-  uint8_t getBrightnessPercentage (time_t currentTime);
   bool isLightOn (time_t currentTimeInDay);
 };
 

@@ -8,20 +8,26 @@
 #define PWM_MAX_OUTPUT 255
 
 LedCycle::LedCycle (){
-  ledNeedInit = true;
   applyDefaultTime();
+
+  // We consider the light is off when we start
+  isLedFullOn = false;
+  isLedOff = true;
 }
 
 LedCycle::LedCycle (time_t _startTime,
                     time_t _fadeInTime, 
                     time_t _stopTime,
                     time_t _fadeOutTime){
-  ledNeedInit = true;
 
   startTime = _startTime;
   fadeInTime = _fadeInTime;
   stopTime = _stopTime;
   fadeOutTime = _fadeOutTime;
+
+  // We consider the light is off when we start
+  isLedFullOn = false;
+  isLedOff = true;
 }
 
 void LedCycle::applyDefaultTime (){
@@ -32,59 +38,37 @@ void LedCycle::applyDefaultTime (){
 }
 
 uint8_t LedCycle::getOutputPercent (time_t currentTime){
-  uint8_t brightnessPercent;
-
-  brightnessPercent = getBrightnessPercentage(currentTime);
-  return brightnessPercent;
-}
-
-uint8_t LedCycle::getBrightnessPercentage (time_t currentTime){
-  uint8_t brightnessPercent;
-  //We keep only the hour and minutes in the day
+  double brightnessPercent;
   time_t timeInDay;
   timeInDay = hoursToTime_t(hour(currentTime)) + 
-      minutesToTime_t(minute(currentTime));
-
-  if (ledNeedInit) {
-    if (isLightOn(timeInDay) == true) {
-      brightnessPercent = 100;
-      isLedFullOn = true;
-      isLedOff = false;
-    }
-    else {
-      brightnessPercent = 0;
-      isLedFullOn = false;
-      isLedOff = true;
-    }
-    ledNeedInit = false;
-  }
+      minutesToTime_t(minute(currentTime)) + 
+      second(currentTime);
 
   // If we are fading in the led
-  if ((isLightOn(timeInDay) == true) && (isLedFullOn == false)) {
-    isLedOff = false;
-    brightnessPercent = ((timeInDay - startTime) * 100) / fadeInTime;
-      if (brightnessPercent == 100) {
-        isLedFullOn = true;
-      }
+  if ((timeInDay >= startTime) && (timeInDay <= (startTime + fadeInTime))) {
+    brightnessPercent = ((timeInDay - startTime) * 100) / (fadeInTime);
+    if (brightnessPercent >= 100) {
+        brightnessPercent = 100;
+    }
+    return (uint8_t)brightnessPercent;
   }
   // If we are fading out the led
-  else if ((isLightOn(timeInDay + fadeOutTime) == false) &&
-           (isLedOff == false)) {
-    isLedFullOn = false;
-    brightnessPercent = ((timeInDay - (stopTime - fadeOutTime))
-                         * 100 / fadeOutTime);
-    if (brightnessPercent == 0) {
-      isLedOff = true;
+  if ((timeInDay >= (stopTime - fadeOutTime)) && (timeInDay <= stopTime)) {
+    brightnessPercent = 100 - (((timeInDay - (stopTime - fadeOutTime))
+                         * 100 / fadeOutTime));
+    if (brightnessPercent <= 0) {
+      brightnessPercent = 0;
     }
+    return (uint8_t)brightnessPercent;
   }
-  // Else we do noting
-  return brightnessPercent;
-}
-
-bool LedCycle::isLightOn (time_t currentTimeInDay){
-  if ((currentTimeInDay >= startTime) && (currentTimeInDay < stopTime))
-    return true;
-  return false;
+  // If it is day time
+  if ((timeInDay >= startTime) && (timeInDay < stopTime)) {
+    brightnessPercent = 100;
+    return (uint8_t)brightnessPercent;
+  }
+  // If it is night time
+  brightnessPercent = 0;
+  return (uint8_t)brightnessPercent;
 }
 
 // For every setters, we make sure the time_t variable
