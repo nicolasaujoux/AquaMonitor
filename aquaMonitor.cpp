@@ -13,14 +13,18 @@
 
 #include "LedCycle.h"
 
+#include "QueueList.h"
+
 /***********************
  * Function declaration
  ***********************/
 
 void printWaitScreen();
-void digitalClockDisplay();
-void printDigits(int digits);
+void digitalClockDisplay(time_t time);
+void printDigits(int digits, char separator);
 void computeKeypadInput(char key);
+void initMenuItems();
+time_t computeUserInput(uint8_t index, uint8_t key);
 
 /***********************
  * Internal variables
@@ -41,14 +45,32 @@ i2ckeypad kpd(0x39, 4, 3);
 time_t time;
 
 // Finite State Machine declaration
+void emptyState();
 void waitState();
 void menuState();
-void menuUpdate();
+void changeHourState();
 
+State _emptyState = State(emptyState);
 State _waitState = State(waitState);
-State _menuState = State(menuState, menuUpdate, NULL);
+// We have to add NULL for update and exit functions of the state
+// or the fsm will continually call menuState when in this state
+State _menuState = State(menuState, NULL, NULL);
+State _changeHourState = State(changeHourState, NULL, NULL);
 
 FSM fsm = FSM(_waitState);
+
+// Menu declaration
+typedef struct menuItem {
+  uint8_t id;
+  String message;
+}menuItem;
+QueueList <menuItem> menuItems;
+
+/*********************
+ * Global definition
+ *********************/
+
+#define NUMBER_OF_MENU_LINES 3
 
 /*********************
  * Setup function
@@ -77,6 +99,7 @@ void setup()  {
 
   kpd.init();
 
+  initMenuItems();
 }
 
 /********************
@@ -87,11 +110,6 @@ void loop(){
 
   percent = led.getOutputPercent(now());
   analogWrite(ledPin, 255 * percent / 100);
-
-  if (fsm.isInState(_waitState))
-  {
-    printWaitScreen();
-  }
 
   key = kpd.get_key();
   if (key != '\0')
@@ -105,25 +123,50 @@ void loop(){
  * State Functions
  *********************/
 
+void emptyState()
+{
+}
+
 void waitState()
 {
+  printWaitScreen();
 }
 
 void menuState()
 {
-  lcd.setCursor(0,0);
-  lcd.print(percent);
+  menuItem tempItem;
+
+  for (int i = 0; i < NUMBER_OF_MENU_LINES; i++) {
+    tempItem = menuItems.pop();
+    if (tempItem.message != NULL) {
+      lcd.setCursor(0,i);
+      lcd.print(i+1);
+      lcd.print(tempItem.message);
+    }
+    menuItems.push(tempItem);
+  }
 
   lcd.setCursor(0,3);
-  lcd.print("Next : * Back : 0");
+  if (menuItems.count() > NUMBER_OF_MENU_LINES) {
+    lcd.print("Next : * Back : 0");
+  }
+  else{
+    lcd.print("Back : #");
+  }
 }
 
-void menuUpdate()
+void changeHourState()
 {
-
+  lcd.setCursor(0,0);
+  lcd.print("Type the time :");
+  lcd.setCursor(0,1);
+  digitalClockDisplay(now());
+  lcd.setCursor(0,2);
+  lcd.print("^");
   lcd.setCursor(0,3);
-  lcd.print("Next : * Back : 0");
+  lcd.print("OK : * Back : #");
 }
+
 
 /*********************
  * Internal functions
@@ -131,7 +174,8 @@ void menuUpdate()
 
 void printWaitScreen()
 {
-  digitalClockDisplay();
+  lcd.setCursor(0,0);
+  digitalClockDisplay(now());
 
   lcd.setCursor(0,1);
   lcd.print("Output : ");
@@ -144,39 +188,159 @@ void printWaitScreen()
 
 void computeKeypadInput(char key)
 {
-  switch (key)
+  static uint8_t index = 0;
+  static time_t modifiedTime;
+  if (fsm.isInState(_waitState))
   {
-    case '#':
-      lcd.clear();
-      fsm.transitionTo(_menuState);
-      break;
-    case '0':
-      lcd.clear();
-      fsm.transitionTo(_waitState);
-      break;
-    case '*':
-      if (fsm.isInState(_menuState))
-      {
+    switch (key)
+    {
+      case '#':
         lcd.clear();
-        fsm.update();
-      }
-      break;
+        fsm.transitionTo(_menuState);
+        break;
+    }
+  }
+  if (fsm.isInState(_menuState))
+  {
+    switch (key)
+    {
+      case '#':
+        lcd.clear();
+        fsm.transitionTo(_waitState);
+        break;
+      case '*':
+        lcd.clear();
+        // We have to call an empty state or the menuState function
+        // will not be called
+        fsm.immediateTransitionTo(_emptyState);
+        fsm.transitionTo(_menuState);
+        break;
+      case '1':
+        lcd.clear();
+        fsm.transitionTo(_changeHourState);
+        break;
+      case '2':
+        lcd.clear();
+        fsm.transitionTo(_changeHourState);
+        break;
+      case '3':
+        lcd.clear();
+        fsm.transitionTo(_changeHourState);
+        break;
+    }
+  }
+  if (fsm.isInState(_changeHourState))
+  {
+    switch (key)
+    {
+      case '*':
+        RTC.set(modifiedTime);
+        setSyncProvider(RTC.get);
+        index = 0;
+        lcd.clear();
+        fsm.transitionTo(_waitState);
+        break;
+      case '#':
+        index = 0;
+        lcd.clear();
+        fsm.transitionTo(_waitState);
+        break;
+      default:
+        modifiedTime = computeUserInput(index, atoi(&key));
+        index++;
+        break;
+    }
   }
 }
 
-void digitalClockDisplay()
+void digitalClockDisplay(time_t time)
 {
   // digital clock display of the time
-  lcd.setCursor(0,0);
-  lcd.print(hour());
-  printDigits(minute());
-  printDigits(second());
+  printDigits(hour(time), NULL);
+  printDigits(minute(time), ':');
+  printDigits(second(time), ':');
 }
 
-void printDigits(int digits)
+void printDigits(int digits, char separator)
 {
-  lcd.print(":");
+  if (separator != NULL)
+    lcd.print(separator);
   if(digits < 10)
     lcd.print('0');
   lcd.print(digits);
+}
+
+void initMenuItems()
+{
+  menuItem changeHour = {1, "Change hour"};
+  menuItems.push(changeHour);
+  menuItem test = {2, "Start LED time"};
+  menuItems.push(test);
+  menuItem test2 = {3, "Stop LED time"};
+  menuItems.push(test2);
+
+  // Complete the queue with NULL element to get a modulo
+  // of the line number
+  menuItem nullItem = {0, NULL};
+  for (int i = 0; i < menuItems.count()%NUMBER_OF_MENU_LINES; i++) {
+    menuItems.push(nullItem);
+  }
+}
+
+time_t computeUserInput(uint8_t index, uint8_t number)
+{
+  static time_t time;
+  uint8_t numberPosition = index;
+  uint8_t nextPosition = index + 1;
+
+  switch (index)
+  {
+    case 0:
+      if (number > 2)
+        number = 0;
+      time = 0;
+      time = hoursToTime_t(number * 10);
+      break;
+    case 1:
+      nextPosition = 3;
+      if (hour(time) >= 20 && number > 3)
+        number = 0;
+      time += hoursToTime_t(number);
+      break;
+    case 2:
+      numberPosition = 3;
+      nextPosition = 4;
+      if (number > 5)
+        number = 0;
+      time += minutesToTime_t(number * 10);
+      break;
+    case 3:
+      numberPosition = 4;
+      nextPosition = 6;
+      time += minutesToTime_t(number);
+      break;
+    case 4:
+      numberPosition = 6;
+      nextPosition = 7;
+      if (number > 5)
+        number = 0;
+      time += number * 10;
+      break;
+    case 5:
+      time += number;
+      numberPosition = 7;
+      nextPosition = 0;
+      break;
+    default:
+      return time;
+  }
+
+  lcd.setCursor(numberPosition,1);
+  lcd.print(number);
+  lcd.setCursor(numberPosition,2);
+  lcd.print(" ");
+  lcd.setCursor(nextPosition,2);
+  lcd.print("^");
+
+  return time;
 }
