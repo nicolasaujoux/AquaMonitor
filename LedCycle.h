@@ -36,8 +36,6 @@ protected:
   time_t startTime, fadeInTime, stopTime, fadeOutTime;
 
   bool isLedFullOn, isLedOff;
-
-  bool isLightOn (time_t currentTimeInDay);
 };
 
 #endif // LED_CYCLE_H

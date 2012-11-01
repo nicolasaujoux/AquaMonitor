@@ -31,9 +31,9 @@ LedCycle::LedCycle (time_t _startTime,
 }
 
 void LedCycle::applyDefaultTime (){
-  startTime = hoursToTime_t(16) + minutesToTime_t(0);
+  startTime = hoursToTime_t(15) + minutesToTime_t(30);
   fadeInTime = minutesToTime_t(30);
-  stopTime = hoursToTime_t(22) + minutesToTime_t(30);
+  stopTime = hoursToTime_t(23) + minutesToTime_t(0);
   fadeOutTime = minutesToTime_t(30);
 }
 
