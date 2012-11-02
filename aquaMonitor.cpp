@@ -49,6 +49,10 @@ void emptyState();
 void waitState();
 void menuState();
 void changeHourState();
+void changeStartLedState();
+void changeStopLedState();
+void changeFadeInState();
+void changeFadeOutState();
 
 State _emptyState = State(emptyState);
 State _waitState = State(waitState);
@@ -56,6 +60,10 @@ State _waitState = State(waitState);
 // or the fsm will continually call menuState when in this state
 State _menuState = State(menuState, NULL, NULL);
 State _changeHourState = State(changeHourState, NULL, NULL);
+State _changeStartLedState = State(changeStartLedState, NULL, NULL);
+State _changeStopLedState = State(changeStopLedState, NULL, NULL);
+State _changeFadeInState = State(changeFadeInState, NULL, NULL);
+State _changeFadeOutState = State(changeFadeOutState, NULL, NULL);
 
 FSM fsm = FSM(_waitState);
 
@@ -167,6 +175,53 @@ void changeHourState()
   lcd.print("OK : * Back : #");
 }
 
+void changeStartLedState()
+{
+  lcd.setCursor(0,0);
+  lcd.print("Start light time :");
+  lcd.setCursor(0,1);
+  digitalClockDisplay(led.getStartTime());
+  lcd.setCursor(0,2);
+  lcd.print("^");
+  lcd.setCursor(0,3);
+  lcd.print("OK : * Back : #");
+}
+
+void changeStopLedState()
+{
+  lcd.setCursor(0,0);
+  lcd.print("Stop light time :");
+  lcd.setCursor(0,1);
+  digitalClockDisplay(led.getStopTime());
+  lcd.setCursor(0,2);
+  lcd.print("^");
+  lcd.setCursor(0,3);
+  lcd.print("OK : * Back : #");
+}
+
+void changeFadeInState()
+{
+  lcd.setCursor(0,0);
+  lcd.print("Fade in light time :");
+  lcd.setCursor(0,1);
+  digitalClockDisplay(led.getFadeInTime());
+  lcd.setCursor(0,2);
+  lcd.print("^");
+  lcd.setCursor(0,3);
+  lcd.print("OK : * Back : #");
+}
+
+void changeFadeOutState()
+{
+  lcd.setCursor(0,0);
+  lcd.print("Fade out light time :");
+  lcd.setCursor(0,1);
+  digitalClockDisplay(led.getFadeOutTime());
+  lcd.setCursor(0,2);
+  lcd.print("^");
+  lcd.setCursor(0,3);
+  lcd.print("OK : * Back : #");
+}
 
 /*********************
  * Internal functions
@@ -221,24 +276,46 @@ void computeKeypadInput(char key)
         break;
       case '2':
         lcd.clear();
-        fsm.transitionTo(_changeHourState);
+        fsm.transitionTo(_changeStartLedState);
         break;
       case '3':
         lcd.clear();
-        fsm.transitionTo(_changeHourState);
+        fsm.transitionTo(_changeStopLedState);
         break;
     }
   }
-  if (fsm.isInState(_changeHourState))
+  if (fsm.isInState(_changeHourState) or 
+      fsm.isInState(_changeStartLedState) or
+      fsm.isInState(_changeStopLedState) or
+      fsm.isInState(_changeFadeInState) or
+      fsm.isInState(_changeFadeOutState))
   {
     switch (key)
     {
       case '*':
-        RTC.set(modifiedTime);
-        setSyncProvider(RTC.get);
         index = 0;
         lcd.clear();
-        fsm.transitionTo(_waitState);
+        if (fsm.isInState(_changeHourState)) {
+          RTC.set(modifiedTime);
+          setSyncProvider(RTC.get);
+          fsm.transitionTo(_waitState);
+        }
+        else if (fsm.isInState(_changeStartLedState)) {
+          led.setStartTime(modifiedTime);
+          fsm.transitionTo(_changeFadeInState);
+        }
+        else if (fsm.isInState(_changeStopLedState)) {
+          led.setStopTime(modifiedTime);
+          fsm.transitionTo(_changeFadeOutState);
+        }
+        else if (fsm.isInState(_changeFadeInState)) {
+          led.setFadeInTime(modifiedTime);
+          fsm.transitionTo(_waitState);
+        }
+        else if (fsm.isInState(_changeFadeOutState)) {
+          led.setFadeOutTime(modifiedTime);
+          fsm.transitionTo(_waitState);
+        }
         break;
       case '#':
         index = 0;
