@@ -15,6 +15,8 @@
 
 #include "QueueList.h"
 
+#include <EEPROM.h>
+
 /***********************
  * Function declaration
  ***********************/
@@ -93,15 +95,7 @@ void setup()  {
   lcd.init();
   lcd.noBacklight();
 
-  start = hoursToTime_t(15) + minutesToTime_t(30);
-  fadeIn = minutesToTime_t(30);
-  stop = hoursToTime_t(23);
-  fadeOut = minutesToTime_t(30);
-
-  led.setStartTime(start);
-  led.setFadeInTime(fadeIn);
-  led.setStopTime(stop);
-  led.setFadeOutTime(fadeOut);
+  led.loadEepromDatas();
 
   pinMode(ledPin, OUTPUT);
 
@@ -172,7 +166,7 @@ void changeHourState()
   lcd.setCursor(0,2);
   lcd.print("^");
   lcd.setCursor(0,3);
-  lcd.print("OK : * Back : #");
+  lcd.print("Back : #");
 }
 
 void changeStartLedState()
@@ -184,7 +178,7 @@ void changeStartLedState()
   lcd.setCursor(0,2);
   lcd.print("^");
   lcd.setCursor(0,3);
-  lcd.print("OK : * Back : #");
+  lcd.print("Back : #");
 }
 
 void changeStopLedState()
@@ -196,7 +190,7 @@ void changeStopLedState()
   lcd.setCursor(0,2);
   lcd.print("^");
   lcd.setCursor(0,3);
-  lcd.print("OK : * Back : #");
+  lcd.print("Back : #");
 }
 
 void changeFadeInState()
@@ -208,7 +202,7 @@ void changeFadeInState()
   lcd.setCursor(0,2);
   lcd.print("^");
   lcd.setCursor(0,3);
-  lcd.print("OK : * Back : #");
+  lcd.print("Back : #");
 }
 
 void changeFadeOutState()
@@ -220,7 +214,7 @@ void changeFadeOutState()
   lcd.setCursor(0,2);
   lcd.print("^");
   lcd.setCursor(0,3);
-  lcd.print("OK : * Back : #");
+  lcd.print("Back : #");
 }
 
 /*********************
@@ -293,6 +287,9 @@ void computeKeypadInput(char key)
     switch (key)
     {
       case '*':
+        if (index != 6) {
+          break;
+        }
         index = 0;
         lcd.clear();
         if (fsm.isInState(_changeHourState)) {
@@ -302,18 +299,22 @@ void computeKeypadInput(char key)
         }
         else if (fsm.isInState(_changeStartLedState)) {
           led.setStartTime(modifiedTime);
+          led.saveEepromDatas();
           fsm.transitionTo(_changeFadeInState);
         }
         else if (fsm.isInState(_changeStopLedState)) {
           led.setStopTime(modifiedTime);
+          led.saveEepromDatas();
           fsm.transitionTo(_changeFadeOutState);
         }
         else if (fsm.isInState(_changeFadeInState)) {
           led.setFadeInTime(modifiedTime);
+          led.saveEepromDatas();
           fsm.transitionTo(_waitState);
         }
         else if (fsm.isInState(_changeFadeOutState)) {
           led.setFadeOutTime(modifiedTime);
+          led.saveEepromDatas();
           fsm.transitionTo(_waitState);
         }
         break;
@@ -407,6 +408,8 @@ time_t computeUserInput(uint8_t index, uint8_t number)
       time += number;
       numberPosition = 7;
       nextPosition = 0;
+      lcd.setCursor(10,3);
+      lcd.print("OK : *");
       break;
     default:
       return time;
